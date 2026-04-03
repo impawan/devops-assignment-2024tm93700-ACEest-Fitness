@@ -1,52 +1,71 @@
 # ACEest Fitness & Gym - DevOps Assignment
 
-This repository contains a modular Flask application plus CI/CD automation to satisfy the DevOps assignment requirements.
+This project is my Assignment 1 submission for the DevOps unit.  
+I built a small Flask app for fitness client/workout tracking, then wired it with Docker, GitHub Actions, and Jenkins so every code change can be validated automatically.
 
-## Project Structure
+## What's in this repo
 
-- `app.py` - Flask API for client and workout management
-- `tests/test_app.py` - Pytest unit tests
+- `app.py` - Flask API with endpoints for clients and workouts
+- `tests/test_app.py` - unit tests written with `pytest`
 - `requirements.txt` - Python dependencies
-- `Dockerfile` - Container image build definition
-- `.github/workflows/main.yml` - GitHub Actions CI workflow
-- `Jenkinsfile` - Jenkins build pipeline
+- `Dockerfile` - container build for the app
+- `.github/workflows/main.yml` - CI checks on push/PR
+- `Jenkinsfile` - Jenkins pipeline for build + test automation
 
-## Local Setup and Run
+## Run locally
 
-1. Create and activate a virtual environment:
-   - macOS/Linux:
-     - `python3 -m venv .venv`
-     - `source .venv/bin/activate`
-2. Install dependencies:
-   - `pip install -r requirements.txt`
-3. Run the application:
-   - `python app.py`
-4. Verify health endpoint:
-   - `curl http://127.0.0.1:5000/health`
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
 
-## Manual Test Execution
+Quick check:
 
-Run the full unit test suite:
+```bash
+curl http://127.0.0.1:5000/health
+```
 
-`pytest -q`
+Expected output:
 
-## Docker Usage
+```json
+{"status":"ok"}
+```
 
-Build and run the image:
+## Run tests manually
 
-- `docker build -t aceest-fitness:latest .`
-- `docker run --rm -p 5000:5000 aceest-fitness:latest`
+```bash
+pytest -q
+```
 
-## CI/CD Overview (Jenkins + GitHub Actions)
+## Docker
 
-- **GitHub Actions** (`.github/workflows/main.yml`)
-  - Triggers on every `push` and `pull_request`
-  - Performs build/syntax check with `python -m py_compile`
-  - Builds Docker image
-  - Runs `pytest` automated tests
+```bash
+docker build -t aceest-fitness:latest .
+docker run --rm -p 5000:5000 aceest-fitness:latest
+```
 
-- **Jenkins** (`Jenkinsfile`)
-  - Uses a staged pipeline: Checkout -> Build -> Docker Build -> Test
-  - Re-validates installation, compilation, image build, and tests in a controlled build server environment
+## CI/CD notes
 
-Together, these pipelines provide automated quality gates from code commit to build validation.
+### GitHub Actions
+
+On every `push` and `pull_request`, the workflow:
+
+1. installs dependencies,
+2. checks Python syntax,
+3. builds the Docker image,
+4. runs the pytest suite.
+
+### Jenkins
+
+The Jenkins pipeline is configured to monitor the `main` branch and run automatically when changes are pushed/merged.  
+Stages are:
+
+- Checkout
+- Validate Branch
+- Build
+- Docker Build
+- Test
+
+Both pipelines are kept intentionally simple but practical, so they match the assignment requirements and are easy to demo.
