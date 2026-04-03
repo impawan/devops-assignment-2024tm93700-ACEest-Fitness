@@ -1,6 +1,6 @@
 # ACEest Fitness & Gym - DevOps Assignment
 
-This project is my Assignment 1 submission for the DevOps unit.  
+This project is the Assignment 1 submission for the DevOps unit.  
 I built a small Flask app for fitness client/workout tracking, then wired it with Docker, GitHub Actions, and Jenkins so every code change can be validated automatically.
 
 ## What's in this repo
