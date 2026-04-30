@@ -1,74 +1,65 @@
 pipeline {
     agent any
-    
     environment {
-        REPO_URL = 'https://github.com/impawan/devops-assignment-2024tm93700-ACEest-Fitness.git'
-        TARGET_BRANCH = 'main'
-        VENV_DIR = 'venv'
-        IMAGE_NAME = 'aceest-fitness:jenkins'
+        DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
+        DOCKER_IMAGE = 'yourdockerhubuser/aceest-fitness'
+        IMAGE_TAG = "v${env.BUILD_ID}"
     }
-    
-    triggers {
-        // Trigger immediately when GitHub webhook sends push events.
-        githubPush()
-        // Fallback polling in case webhook is not configured/reachable.
-        pollSCM('H/2 * * * *')
-    }
-
     stages {
         stage('Checkout') {
             steps {
-                echo "Pulling latest code from ${TARGET_BRANCH} branch..."
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: "*/${TARGET_BRANCH}"]],
-                    userRemoteConfigs: [[url: "${REPO_URL}"]]
-                ])
-                echo "Checkout done."
+                checkout scm
             }
         }
-        
-        stage('Validate Main Branch Trigger') {
+        stage('Test & Coverage') {
             steps {
-                script {
-                    def branchName = sh(
-                        script: 'git rev-parse --abbrev-ref HEAD',
-                        returnStdout: true
-                    ).trim()
-                    echo "Current checked-out branch: ${branchName}"
-                    if (branchName != TARGET_BRANCH) {
-                        error("Stopping build: expected '${TARGET_BRANCH}', found '${branchName}'.")
-                    }
-                    echo "Branch check passed."
+                sh '''
+                pip install -r requirements.txt
+                pytest --junitxml=reports/pytest.xml --cov=app --cov-report=xml:reports/coverage.xml
+                '''
+            }
+            post {
+                always {
+                    junit 'reports/pytest.xml'
                 }
             }
         }
-
-        stage('Build') {
+        stage('SonarQube Analysis') {
             steps {
-                echo "Creating virtual environment..."
-                sh "python3 -m venv ${VENV_DIR}"
-                echo 'Installing dependencies...'
-                sh ". ${VENV_DIR}/bin/activate && pip install -r requirements.txt"
-                echo 'Running syntax check...'
-                sh ". ${VENV_DIR}/bin/activate && python -m py_compile app.py"
-                echo 'Build step completed.'
+                // Ensure SonarQube Scanner is configured in Jenkins globally
+                // with the name 'sonar-scanner'
+                script {
+                    def scannerHome = tool 'sonar-scanner'
+                    withSonarQubeEnv('sonarqube-server') {
+                        sh "${scannerHome}/bin/sonar-scanner"
+                    }
+                }
             }
         }
-
-        stage('Docker Build') {
+        stage('Build Image') {
             steps {
-                echo "Building Docker image ${IMAGE_NAME}..."
-                sh "docker build -t ${IMAGE_NAME} ."
-                echo "Docker image ready."
+                script {
+                    dockerImage = docker.build("${DOCKER_IMAGE}:${IMAGE_TAG}")
+                }
             }
         }
-
-        stage('Test') {
+        stage('Push Image') {
             steps {
-                echo 'Running pytest suite...'
-                sh ". ${VENV_DIR}/bin/activate && pytest -q"
-                echo 'All tests passed.'
+                script {
+                    docker.withRegistry('https://index.docker.io/v1/', DOCKERHUB_CREDENTIALS_ID) {
+                        dockerImage.push()
+                        dockerImage.push('latest')
+                    }
+                }
+            }
+        }
+        stage('Deploy to Kubernetes (Minikube)') {
+            steps {
+                sh '''
+                # Substitute the image tag in deployment and apply
+                sed -i "s|image: yourdockerhubuser/aceest-fitness:latest|image: ${DOCKER_IMAGE}:${IMAGE_TAG}|g" k8s/deployment.yaml
+                kubectl apply -f k8s/
+                '''
             }
         }
     }
