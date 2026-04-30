@@ -1,5 +1,11 @@
 pipeline {
     agent any
+    
+    triggers {
+        githubPush()
+        pollSCM('* * * * *')
+    }
+
     environment {
         DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
         DOCKER_IMAGE = 'yourdockerhubuser/aceest-fitness'
@@ -44,6 +50,9 @@ pipeline {
             }
         }
         stage('Push Image') {
+            when {
+                branch 'main'
+            }
             steps {
                 script {
                     docker.withRegistry('https://index.docker.io/v1/', DOCKERHUB_CREDENTIALS_ID) {
@@ -54,6 +63,9 @@ pipeline {
             }
         }
         stage('Deploy to Kubernetes (Minikube)') {
+            when {
+                branch 'main'
+            }
             steps {
                 sh '''
                 # Substitute the image tag in deployment and apply
